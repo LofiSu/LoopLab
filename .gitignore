@@ -1,0 +1,6 @@
+node_modules
+dist
+looplab.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.DS_Store
