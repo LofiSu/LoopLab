@@ -1,15 +1,21 @@
-import type { Trace, TraceEvent, TraceSeverity, TraceStatus } from "./types";
+import type { Assessment, EvaluationEvent, EvaluationStatus, EventKind, Trajectory } from "./types";
 
-export type TracePayload = {
+export type TrajectoryPayload = {
   title: string;
-  service: string;
-  owner: string;
-  status: TraceStatus;
-  severity: TraceSeverity;
+  agent: string;
+  dataset: string;
+  reviewer: string;
+  status: EvaluationStatus;
+  assessment: Assessment;
+  score: number;
   summary: string;
+  rubric: string;
+  judgeModel: string;
+  feedbackLoop: string;
 };
 
 export type EventPayload = {
+  kind: EventKind;
   label: string;
   detail: string;
   source: string;
@@ -32,7 +38,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
-export function fetchTraces(search: string, status: string) {
+export function fetchTrajectories(search: string, status: string) {
   const params = new URLSearchParams();
   if (search) {
     params.set("q", search);
@@ -41,35 +47,35 @@ export function fetchTraces(search: string, status: string) {
     params.set("status", status);
   }
 
-  return request<{ traces: Trace[] }>(`/api/traces?${params}`);
+  return request<{ trajectories: Trajectory[] }>(`/api/trajectories?${params}`);
 }
 
-export function fetchTrace(id: number) {
-  return request<{ trace: Trace; events: TraceEvent[] }>(`/api/traces/${id}`);
+export function fetchTrajectory(id: number) {
+  return request<{ trajectory: Trajectory; events: EvaluationEvent[] }>(`/api/trajectories/${id}`);
 }
 
-export function createTrace(payload: TracePayload) {
-  return request<{ trace: Trace }>("/api/traces", {
+export function createTrajectory(payload: TrajectoryPayload) {
+  return request<{ trajectory: Trajectory }>("/api/trajectories", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
-export function updateTrace(id: number, payload: Partial<TracePayload>) {
-  return request<{ trace: Trace }>(`/api/traces/${id}`, {
+export function updateTrajectory(id: number, payload: Partial<TrajectoryPayload>) {
+  return request<{ trajectory: Trajectory }>(`/api/trajectories/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });
 }
 
-export function deleteTrace(id: number) {
-  return request<{ ok: true }>(`/api/traces/${id}`, {
+export function deleteTrajectory(id: number) {
+  return request<{ ok: true }>(`/api/trajectories/${id}`, {
     method: "DELETE"
   });
 }
 
-export function createEvent(traceId: number, payload: EventPayload) {
-  return request<{ trace: Trace; event: TraceEvent }>(`/api/traces/${traceId}/events`, {
+export function createEvent(trajectoryId: number, payload: EventPayload) {
+  return request<{ trajectory: Trajectory; event: EvaluationEvent }>(`/api/trajectories/${trajectoryId}/events`, {
     method: "POST",
     body: JSON.stringify(payload)
   });

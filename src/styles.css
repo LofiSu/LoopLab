@@ -183,26 +183,26 @@ button {
   border-radius: 999px;
 }
 
-.severity-dot.low,
-.severity-badge.low {
+.severity-dot.pass,
+.severity-badge.pass {
   background: #d8f1e4;
   color: #19724d;
 }
 
-.severity-dot.medium,
-.severity-badge.medium {
+.severity-dot.watch,
+.severity-badge.watch {
   background: #fee8b8;
   color: #8a5b00;
 }
 
-.severity-dot.high,
-.severity-badge.high {
+.severity-dot.fail,
+.severity-badge.fail {
   background: #ffd4bd;
   color: #9c3f10;
 }
 
-.severity-dot.critical,
-.severity-badge.critical {
+.severity-dot.regression,
+.severity-badge.regression {
   background: #ffd6dc;
   color: #aa1e35;
 }
@@ -219,9 +219,29 @@ button {
   white-space: nowrap;
 }
 
-.status-pill.open {
+.status-pill.captured {
   background: #e5eefc;
   color: #235da8;
+}
+
+.status-pill.evaluating {
+  background: #eef0ff;
+  color: #4a4ca8;
+}
+
+.status-pill.human_review {
+  background: #fff0c7;
+  color: #846200;
+}
+
+.status-pill.feedback_loop {
+  background: #e6f2ed;
+  color: #24705a;
+}
+
+.status-pill.improved {
+  background: #e7ece8;
+  color: #4b5b50;
 }
 
 .status-pill.watching {
@@ -302,6 +322,35 @@ button {
   align-content: flex-start;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.insight {
+  display: grid;
+  gap: 6px;
+  min-height: 76px;
+  padding: 12px;
+  background: #f8fafb;
+  border: 1px solid #dce2e8;
+  border-radius: 8px;
+}
+
+.insight span {
+  color: #667085;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.insight strong {
+  overflow-wrap: anywhere;
+  color: #1d2430;
 }
 
 .action-row {
@@ -440,6 +489,7 @@ button {
 }
 
 .stack-form input,
+.stack-form select,
 .stack-form textarea,
 .create-form input,
 .create-form select,
@@ -485,6 +535,26 @@ button {
   font-weight: 800;
 }
 
+.loop-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8fafb;
+  border: 1px solid #dce2e8;
+  border-radius: 8px;
+}
+
+.loop-panel h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.loop-panel p {
+  margin-top: 8px;
+}
+
 .empty-state,
 .blank-detail {
   display: grid;
@@ -508,6 +578,11 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .insight-grid,
+  .loop-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .create-form,
   .edit-form {
     grid-template-columns: 1fr 1fr;
@@ -526,6 +601,8 @@ button {
   }
 
   .metric-grid,
+  .insight-grid,
+  .loop-panel,
   .create-form,
   .edit-form {
     grid-template-columns: 1fr;

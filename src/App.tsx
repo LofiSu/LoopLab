@@ -1,9 +1,8 @@
 import {
   Activity,
-  AlertTriangle,
+  Brain,
   CheckCircle2,
   CircleDot,
-  Clock,
   Database,
   Filter,
   Pencil,
@@ -11,6 +10,7 @@ import {
   Save,
   Search,
   Send,
+  Target,
   Trash2,
   X
 } from "lucide-react";
@@ -18,118 +18,135 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   createEvent,
-  createTrace,
-  deleteTrace,
-  fetchTrace,
-  fetchTraces,
-  updateTrace,
+  createTrajectory,
+  deleteTrajectory,
+  fetchTrajectory,
+  fetchTrajectories,
+  updateTrajectory,
   type EventPayload,
-  type TracePayload
+  type TrajectoryPayload
 } from "./api";
-import type { Trace, TraceEvent, TraceSeverity, TraceStatus } from "./types";
+import type { Assessment, EvaluationEvent, EvaluationStatus, EventKind, Trajectory } from "./types";
 
-const statusLabels: Record<TraceStatus, string> = {
-  open: "Open",
-  watching: "Watching",
-  blocked: "Blocked",
-  resolved: "Resolved"
+const statusLabels: Record<EvaluationStatus, string> = {
+  captured: "Captured",
+  evaluating: "Evaluating",
+  human_review: "Human review",
+  feedback_loop: "Feedback loop",
+  improved: "Improved"
 };
 
-const severityLabels: Record<TraceSeverity, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  critical: "Critical"
+const assessmentLabels: Record<Assessment, string> = {
+  pass: "Pass",
+  watch: "Watch",
+  fail: "Fail",
+  regression: "Regression"
 };
 
-const emptyTrace: TracePayload = {
+const kindLabels: Record<EventKind, string> = {
+  trajectory: "Trajectory",
+  rubric: "Rubric",
+  judge: "LLM judge",
+  human: "Human review",
+  training: "Training"
+};
+
+const emptyTrajectory: TrajectoryPayload = {
   title: "",
-  service: "",
-  owner: "",
-  status: "open",
-  severity: "medium",
-  summary: ""
+  agent: "",
+  dataset: "",
+  reviewer: "",
+  status: "captured",
+  assessment: "watch",
+  score: 70,
+  summary: "",
+  rubric: "",
+  judgeModel: "",
+  feedbackLoop: ""
 };
 
 const emptyEvent: EventPayload = {
+  kind: "trajectory",
   label: "",
   detail: "",
   source: ""
 };
 
 export default function App() {
-  const [traces, setTraces] = useState<Trace[]>([]);
+  const [trajectories, setTrajectories] = useState<Trajectory[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [selected, setSelected] = useState<Trace | null>(null);
-  const [events, setEvents] = useState<TraceEvent[]>([]);
+  const [selected, setSelected] = useState<Trajectory | null>(null);
+  const [events, setEvents] = useState<EvaluationEvent[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
-  const [traceForm, setTraceForm] = useState<TracePayload>(emptyTrace);
-  const [editForm, setEditForm] = useState<TracePayload>(emptyTrace);
+  const [trajectoryForm, setTrajectoryForm] = useState<TrajectoryPayload>(emptyTrajectory);
+  const [editForm, setEditForm] = useState<TrajectoryPayload>(emptyTrajectory);
   const [eventForm, setEventForm] = useState<EventPayload>(emptyEvent);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void loadTraces();
+    void loadTrajectories();
   }, [search, status]);
 
   useEffect(() => {
     if (selectedId) {
-      void loadTrace(selectedId);
+      void loadTrajectory(selectedId);
     }
   }, [selectedId]);
 
   const metrics = useMemo(() => {
-    const active = traces.filter((trace) => trace.status !== "resolved").length;
-    const critical = traces.filter((trace) => trace.severity === "critical").length;
-    const blocked = traces.filter((trace) => trace.status === "blocked").length;
-    return { active, critical, blocked };
-  }, [traces]);
+    const reviewQueue = trajectories.filter((trajectory) => trajectory.status === "human_review").length;
+    const regressions = trajectories.filter((trajectory) => trajectory.assessment === "regression").length;
+    const averageScore = trajectories.length
+      ? Math.round(trajectories.reduce((total, trajectory) => total + trajectory.score, 0) / trajectories.length)
+      : 0;
+    return { reviewQueue, regressions, averageScore };
+  }, [trajectories]);
 
-  async function loadTraces() {
+  async function loadTrajectories() {
     setLoading(true);
     try {
-      const data = await fetchTraces(search, status);
-      setTraces(data.traces);
+      const data = await fetchTrajectories(search, status);
+      setTrajectories(data.trajectories);
       setError("");
-      if (!selectedId && data.traces.length > 0) {
-        setSelectedId(data.traces[0].id);
+      if (!selectedId && data.trajectories.length > 0) {
+        setSelectedId(data.trajectories[0].id);
       }
-      if (selectedId && !data.traces.some((trace) => trace.id === selectedId)) {
-        setSelectedId(data.traces[0]?.id ?? null);
+      if (selectedId && !data.trajectories.some((trajectory) => trajectory.id === selectedId)) {
+        setSelectedId(data.trajectories[0]?.id ?? null);
         setSelected(null);
         setEvents([]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load traces");
+      setError(err instanceof Error ? err.message : "Failed to load trajectories");
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadTrace(id: number) {
+  async function loadTrajectory(id: number) {
     try {
-      const data = await fetchTrace(id);
-      setSelected(data.trace);
-      setEditForm(toPayload(data.trace));
+      const data = await fetchTrajectory(id);
+      setSelected(data.trajectory);
+      setEditForm(toPayload(data.trajectory));
       setEvents(data.events);
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load trace");
+      setError(err instanceof Error ? err.message : "Failed to load trajectory");
     }
   }
 
-  async function submitTrace(event: FormEvent) {
+  async function submitTrajectory(event: FormEvent) {
     event.preventDefault();
     try {
-      const data = await createTrace(traceForm);
-      setTraceForm(emptyTrace);
-      setSelectedId(data.trace.id);
-      await loadTraces();
+      const data = await createTrajectory(trajectoryForm);
+      setTrajectoryForm(emptyTrajectory);
+      setSelectedId(data.trajectory.id);
+      await loadTrajectories();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create trace");
+      setError(err instanceof Error ? err.message : "Failed to create trajectory");
     }
   }
 
@@ -142,22 +159,22 @@ export default function App() {
     try {
       await createEvent(selected.id, eventForm);
       setEventForm(emptyEvent);
-      await loadTrace(selected.id);
-      await loadTraces();
+      await loadTrajectory(selected.id);
+      await loadTrajectories();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add event");
+      setError(err instanceof Error ? err.message : "Failed to add evaluation event");
     }
   }
 
-  async function changeStatus(nextStatus: TraceStatus) {
+  async function changeStatus(nextStatus: EvaluationStatus) {
     if (!selected) {
       return;
     }
 
     try {
-      const data = await updateTrace(selected.id, { status: nextStatus });
-      setSelected(data.trace);
-      await loadTraces();
+      const data = await updateTrajectory(selected.id, { status: nextStatus });
+      setSelected(data.trajectory);
+      await loadTrajectories();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
     }
@@ -170,13 +187,13 @@ export default function App() {
     }
 
     try {
-      const data = await updateTrace(selected.id, editForm);
-      setSelected(data.trace);
-      setEditForm(toPayload(data.trace));
+      const data = await updateTrajectory(selected.id, editForm);
+      setSelected(data.trajectory);
+      setEditForm(toPayload(data.trajectory));
       setEditing(false);
-      await loadTraces();
+      await loadTrajectories();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update trace");
+      setError(err instanceof Error ? err.message : "Failed to update trajectory");
     }
   }
 
@@ -186,13 +203,13 @@ export default function App() {
     }
 
     try {
-      await deleteTrace(selected.id);
+      await deleteTrajectory(selected.id);
       setSelected(null);
       setSelectedId(null);
       setEvents([]);
-      await loadTraces();
+      await loadTrajectories();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete trace");
+      setError(err instanceof Error ? err.message : "Failed to delete trajectory");
     }
   }
 
@@ -201,29 +218,29 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">
-            <Activity size={22} />
+            <Brain size={22} />
           </div>
           <div>
             <h1>LoopLab</h1>
-            <p>Incident and workflow trace center</p>
+            <p>Agent trajectory evaluation loops</p>
           </div>
         </div>
 
         <div className="metric-grid">
-          <Metric icon={<CircleDot size={18} />} label="Active" value={metrics.active} />
-          <Metric icon={<AlertTriangle size={18} />} label="Critical" value={metrics.critical} />
-          <Metric icon={<Clock size={18} />} label="Blocked" value={metrics.blocked} />
+          <Metric icon={<Target size={18} />} label="Avg score" value={metrics.averageScore} />
+          <Metric icon={<CircleDot size={18} />} label="Review" value={metrics.reviewQueue} />
+          <Metric icon={<Activity size={18} />} label="Regressions" value={metrics.regressions} />
         </div>
 
         <div className="toolbar">
           <label className="search-box">
             <Search size={17} />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search traces" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agents, datasets, rubrics" />
           </label>
           <label className="select-box">
             <Filter size={17} />
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="all">All statuses</option>
+              <option value="all">All workflow stages</option>
               {Object.entries(statusLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -234,22 +251,22 @@ export default function App() {
         </div>
 
         <div className="trace-list" aria-busy={loading}>
-          {traces.map((trace) => (
+          {trajectories.map((trajectory) => (
             <button
-              className={`trace-card ${selectedId === trace.id ? "active" : ""}`}
-              key={trace.id}
-              onClick={() => setSelectedId(trace.id)}
+              className={`trace-card ${selectedId === trajectory.id ? "active" : ""}`}
+              key={trajectory.id}
+              onClick={() => setSelectedId(trajectory.id)}
               type="button"
             >
-              <span className={`severity-dot ${trace.severity}`} />
+              <span className={`severity-dot ${trajectory.assessment}`} />
               <span className="trace-card-main">
-                <strong>{trace.title}</strong>
-                <small>{trace.service} / {trace.owner}</small>
+                <strong>{trajectory.title}</strong>
+                <small>{trajectory.agent} / {trajectory.dataset}</small>
               </span>
-              <span className={`status-pill ${trace.status}`}>{statusLabels[trace.status]}</span>
+              <span className={`status-pill ${trajectory.status}`}>{trajectory.score}</span>
             </button>
           ))}
-          {!loading && traces.length === 0 ? <div className="empty-state">No traces match this view.</div> : null}
+          {!loading && trajectories.length === 0 ? <div className="empty-state">No trajectories match this view.</div> : null}
         </div>
       </aside>
 
@@ -261,14 +278,21 @@ export default function App() {
             <>
               <div className="detail-header">
                 <div>
-                  <div className="eyebrow">{selected.service}</div>
+                  <div className="eyebrow">{selected.agent}</div>
                   <h2>{selected.title}</h2>
                   <p>{selected.summary}</p>
                 </div>
                 <div className="detail-badges">
-                  <span className={`severity-badge ${selected.severity}`}>{severityLabels[selected.severity]}</span>
+                  <span className={`severity-badge ${selected.assessment}`}>{assessmentLabels[selected.assessment]}</span>
                   <span className={`status-pill ${selected.status}`}>{statusLabels[selected.status]}</span>
                 </div>
+              </div>
+
+              <div className="insight-grid">
+                <Insight label="Rubric score" value={`${selected.score}/100`} />
+                <Insight label="Dataset" value={selected.dataset} />
+                <Insight label="Judge model" value={selected.judgeModel} />
+                <Insight label="Reviewer" value={selected.reviewer} />
               </div>
 
               <div className="action-row">
@@ -283,47 +307,25 @@ export default function App() {
               </div>
 
               {editing ? (
-                <form className="edit-form" onSubmit={submitEdit}>
-                  <input value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} placeholder="Title" />
-                  <input value={editForm.service} onChange={(event) => setEditForm({ ...editForm, service: event.target.value })} placeholder="Service" />
-                  <input value={editForm.owner} onChange={(event) => setEditForm({ ...editForm, owner: event.target.value })} placeholder="Owner" />
-                  <select value={editForm.severity} onChange={(event) => setEditForm({ ...editForm, severity: event.target.value as TraceSeverity })}>
-                    {Object.entries(severityLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                  <select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value as TraceStatus })}>
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                  <textarea value={editForm.summary} onChange={(event) => setEditForm({ ...editForm, summary: event.target.value })} placeholder="Summary" />
-                  <div className="form-actions">
-                    <button className="secondary-action" onClick={() => setEditing(false)} type="button">
-                      <X size={16} />
-                      Cancel
-                    </button>
-                    <button className="primary-action" type="submit">
-                      <Save size={16} />
-                      Save
-                    </button>
-                  </div>
-                </form>
+                <TrajectoryForm
+                  actionLabel="Save"
+                  form={editForm}
+                  onCancel={() => setEditing(false)}
+                  onChange={setEditForm}
+                  onSubmit={submitEdit}
+                  showCancel
+                />
               ) : null}
 
               <div className="status-row">
-                {(Object.keys(statusLabels) as TraceStatus[]).map((item) => (
+                {(Object.keys(statusLabels) as EvaluationStatus[]).map((item) => (
                   <button
                     className={selected.status === item ? "selected" : ""}
                     key={item}
                     onClick={() => void changeStatus(item)}
                     type="button"
                   >
-                    {item === "resolved" ? <CheckCircle2 size={16} /> : <CircleDot size={16} />}
+                    {item === "improved" ? <CheckCircle2 size={16} /> : <CircleDot size={16} />}
                     {statusLabels[item]}
                   </button>
                 ))}
@@ -333,7 +335,7 @@ export default function App() {
                 <section className="panel timeline-panel">
                   <div className="panel-title">
                     <Database size={18} />
-                    <h3>Timeline</h3>
+                    <h3>Evaluation timeline</h3>
                   </div>
                   <div className="timeline">
                     {events.map((item) => (
@@ -341,7 +343,7 @@ export default function App() {
                         <time>{formatDate(item.createdAt)}</time>
                         <h4>{item.label}</h4>
                         <p>{item.detail}</p>
-                        <span>{item.source}</span>
+                        <span>{kindLabels[item.kind]} / {item.source}</span>
                       </article>
                     ))}
                   </div>
@@ -350,12 +352,19 @@ export default function App() {
                 <section className="panel">
                   <div className="panel-title">
                     <Send size={18} />
-                    <h3>Add event</h3>
+                    <h3>Add assessment event</h3>
                   </div>
                   <form className="stack-form" onSubmit={submitEvent}>
+                    <select value={eventForm.kind} onChange={(event) => setEventForm({ ...eventForm, kind: event.target.value as EventKind })}>
+                      {Object.entries(kindLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
                     <input value={eventForm.label} onChange={(event) => setEventForm({ ...eventForm, label: event.target.value })} placeholder="Event label" />
                     <input value={eventForm.source} onChange={(event) => setEventForm({ ...eventForm, source: event.target.value })} placeholder="Source" />
-                    <textarea value={eventForm.detail} onChange={(event) => setEventForm({ ...eventForm, detail: event.target.value })} placeholder="What changed?" />
+                    <textarea value={eventForm.detail} onChange={(event) => setEventForm({ ...eventForm, detail: event.target.value })} placeholder="Assessment detail" />
                     <button className="primary-action" type="submit">
                       <Plus size={17} />
                       Add event
@@ -363,48 +372,120 @@ export default function App() {
                   </form>
                 </section>
               </div>
+
+              <section className="loop-panel">
+                <div>
+                  <h3>Rubric</h3>
+                  <p>{selected.rubric}</p>
+                </div>
+                <div>
+                  <h3>Training feedback loop</h3>
+                  <p>{selected.feedbackLoop}</p>
+                </div>
+              </section>
             </>
           ) : (
-            <div className="blank-detail">Select or create a trace to begin.</div>
+            <div className="blank-detail">Select or create a trajectory to begin.</div>
           )}
         </section>
 
         <section className="create-panel">
           <div className="panel-title">
             <Plus size={18} />
-            <h3>New trace</h3>
+            <h3>New trajectory evaluation</h3>
           </div>
-          <form className="create-form" onSubmit={submitTrace}>
-            <input value={traceForm.title} onChange={(event) => setTraceForm({ ...traceForm, title: event.target.value })} placeholder="Title" />
-            <input value={traceForm.service} onChange={(event) => setTraceForm({ ...traceForm, service: event.target.value })} placeholder="Service" />
-            <input value={traceForm.owner} onChange={(event) => setTraceForm({ ...traceForm, owner: event.target.value })} placeholder="Owner" />
-            <select value={traceForm.severity} onChange={(event) => setTraceForm({ ...traceForm, severity: event.target.value as TraceSeverity })}>
-              {Object.entries(severityLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <textarea value={traceForm.summary} onChange={(event) => setTraceForm({ ...traceForm, summary: event.target.value })} placeholder="Summary" />
-            <button className="primary-action" type="submit">
-              <Plus size={17} />
-              Create trace
-            </button>
-          </form>
+          <TrajectoryForm actionLabel="Create trajectory" form={trajectoryForm} onChange={setTrajectoryForm} onSubmit={submitTrajectory} />
         </section>
       </section>
     </main>
   );
 }
 
-function toPayload(trace: Trace): TracePayload {
+function TrajectoryForm({
+  actionLabel,
+  form,
+  onCancel,
+  onChange,
+  onSubmit,
+  showCancel = false
+}: {
+  actionLabel: string;
+  form: TrajectoryPayload;
+  onCancel?: () => void;
+  onChange: (form: TrajectoryPayload) => void;
+  onSubmit: (event: FormEvent) => void;
+  showCancel?: boolean;
+}) {
+  return (
+    <form className={showCancel ? "edit-form" : "create-form"} onSubmit={onSubmit}>
+      <input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="Trajectory title" />
+      <input value={form.agent} onChange={(event) => onChange({ ...form, agent: event.target.value })} placeholder="Agent" />
+      <input value={form.dataset} onChange={(event) => onChange({ ...form, dataset: event.target.value })} placeholder="Dataset or eval suite" />
+      <input value={form.reviewer} onChange={(event) => onChange({ ...form, reviewer: event.target.value })} placeholder="Reviewer" />
+      <select value={form.status} onChange={(event) => onChange({ ...form, status: event.target.value as EvaluationStatus })}>
+        {Object.entries(statusLabels).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+      <select value={form.assessment} onChange={(event) => onChange({ ...form, assessment: event.target.value as Assessment })}>
+        {Object.entries(assessmentLabels).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+      <input
+        max="100"
+        min="0"
+        onChange={(event) => onChange({ ...form, score: Number(event.target.value) })}
+        placeholder="Score"
+        type="number"
+        value={form.score}
+      />
+      <input value={form.judgeModel} onChange={(event) => onChange({ ...form, judgeModel: event.target.value })} placeholder="LLM judge model" />
+      <textarea value={form.summary} onChange={(event) => onChange({ ...form, summary: event.target.value })} placeholder="Trajectory summary" />
+      <textarea value={form.rubric} onChange={(event) => onChange({ ...form, rubric: event.target.value })} placeholder="Rubric dimensions" />
+      <textarea value={form.feedbackLoop} onChange={(event) => onChange({ ...form, feedbackLoop: event.target.value })} placeholder="Training feedback loop" />
+      <div className="form-actions">
+        {showCancel ? (
+          <button className="secondary-action" onClick={onCancel} type="button">
+            <X size={16} />
+            Cancel
+          </button>
+        ) : null}
+        <button className="primary-action" type="submit">
+          <Save size={16} />
+          {actionLabel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function Insight({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="insight">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function toPayload(trajectory: Trajectory): TrajectoryPayload {
   return {
-    title: trace.title,
-    service: trace.service,
-    owner: trace.owner,
-    status: trace.status,
-    severity: trace.severity,
-    summary: trace.summary
+    title: trajectory.title,
+    agent: trajectory.agent,
+    dataset: trajectory.dataset,
+    reviewer: trajectory.reviewer,
+    status: trajectory.status,
+    assessment: trajectory.assessment,
+    score: trajectory.score,
+    summary: trajectory.summary,
+    rubric: trajectory.rubric,
+    judgeModel: trajectory.judgeModel,
+    feedbackLoop: trajectory.feedbackLoop
   };
 }
 

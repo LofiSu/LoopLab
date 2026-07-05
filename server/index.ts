@@ -1,24 +1,26 @@
 import { existsSync } from "node:fs";
 import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { serveStatic } from "hono/bun";
 import {
   createEvent,
-  createTrace,
-  deleteTrace,
-  getTrace,
+  createTrajectory,
+  deleteTrajectory,
+  getTrajectory,
   listEvents,
-  listTraces,
-  updateTrace,
-  type TraceEventInput,
-  type TraceInput,
-  type TraceSeverity,
-  type TraceStatus
+  listTrajectories,
+  updateTrajectory,
+  type Assessment,
+  type EvaluationEventInput,
+  type EvaluationStatus,
+  type EventKind,
+  type TrajectoryInput
 } from "./db";
 
-const statuses = new Set<TraceStatus>(["open", "watching", "blocked", "resolved"]);
-const severities = new Set<TraceSeverity>(["low", "medium", "high", "critical"]);
+const statuses = new Set<EvaluationStatus>(["captured", "evaluating", "human_review", "feedback_loop", "improved"]);
+const assessments = new Set<Assessment>(["pass", "watch", "fail", "regression"]);
+const eventKinds = new Set<EventKind>(["trajectory", "rubric", "judge", "human", "training"]);
 
 const app = new Hono();
 
@@ -27,70 +29,76 @@ app.use("/api/*", cors());
 
 app.get("/api/health", (c) => c.json({ ok: true, service: "LoopLab" }));
 
-app.get("/api/traces", (c) => {
+app.get("/api/trajectories", (c) => {
   const search = c.req.query("q") ?? "";
   const status = c.req.query("status") ?? "all";
-  return c.json({ traces: listTraces(search, status) });
+  return c.json({ trajectories: listTrajectories(search, status) });
 });
 
-app.post("/api/traces", async (c) => {
-  const input = await c.req.json<TraceInput>();
-  const error = validateTrace(input);
+app.post("/api/trajectories", async (c) => {
+  const input = await c.req.json<TrajectoryInput>();
+  const error = validateTrajectory(input);
   if (error) {
     return c.json({ error }, 400);
   }
 
-  return c.json({ trace: createTrace(input) }, 201);
+  return c.json({ trajectory: createTrajectory(input) }, 201);
 });
 
-app.get("/api/traces/:id", (c) => {
+app.get("/api/trajectories/:id", (c) => {
   const id = Number(c.req.param("id"));
-  const trace = getTrace(id);
-  if (!trace) {
-    return c.json({ error: "Trace not found" }, 404);
+  const trajectory = getTrajectory(id);
+  if (!trajectory) {
+    return c.json({ error: "Trajectory not found" }, 404);
   }
 
-  return c.json({ trace, events: listEvents(id) });
+  return c.json({ trajectory, events: listEvents(id) });
 });
 
-app.patch("/api/traces/:id", async (c) => {
+app.patch("/api/trajectories/:id", async (c) => {
   const id = Number(c.req.param("id"));
-  const input = await c.req.json<Partial<TraceInput>>();
-  const error = validateTrace(input, true);
+  const input = await c.req.json<Partial<TrajectoryInput>>();
+  const error = validateTrajectory(input, true);
   if (error) {
     return c.json({ error }, 400);
   }
 
-  const trace = updateTrace(id, input);
-  if (!trace) {
-    return c.json({ error: "Trace not found" }, 404);
+  const trajectory = updateTrajectory(id, input);
+  if (!trajectory) {
+    return c.json({ error: "Trajectory not found" }, 404);
   }
 
-  return c.json({ trace });
+  return c.json({ trajectory });
 });
 
-app.delete("/api/traces/:id", (c) => {
+app.delete("/api/trajectories/:id", (c) => {
   const id = Number(c.req.param("id"));
-  if (!deleteTrace(id)) {
-    return c.json({ error: "Trace not found" }, 404);
+  if (!deleteTrajectory(id)) {
+    return c.json({ error: "Trajectory not found" }, 404);
   }
 
   return c.json({ ok: true });
 });
 
-app.post("/api/traces/:id/events", async (c) => {
+app.post("/api/trajectories/:id/events", async (c) => {
   const id = Number(c.req.param("id"));
-  if (!getTrace(id)) {
-    return c.json({ error: "Trace not found" }, 404);
+  if (!getTrajectory(id)) {
+    return c.json({ error: "Trajectory not found" }, 404);
   }
 
-  const input = await c.req.json<TraceEventInput>();
+  const input = await c.req.json<EvaluationEventInput>();
   const error = validateEvent(input);
   if (error) {
     return c.json({ error }, 400);
   }
 
-  return c.json({ event: createEvent(id, input), trace: getTrace(id) }, 201);
+  return c.json({ event: createEvent(id, input), trajectory: getTrajectory(id) }, 201);
+});
+
+app.get("/api/traces", (c) => {
+  const search = c.req.query("q") ?? "";
+  const status = c.req.query("status") ?? "all";
+  return c.json({ trajectories: listTrajectories(search, status) });
 });
 
 if (existsSync("dist")) {
@@ -107,16 +115,30 @@ Bun.serve({
 
 console.log(`LoopLab API running on http://localhost:${port}`);
 
-function validateTrace(input: Partial<TraceInput>, partial = false) {
-  const required: Array<keyof TraceInput> = ["title", "service", "owner", "status", "severity", "summary"];
+function validateTrajectory(input: Partial<TrajectoryInput>, partial = false) {
+  const required: Array<keyof TrajectoryInput> = [
+    "title",
+    "agent",
+    "dataset",
+    "reviewer",
+    "status",
+    "assessment",
+    "score",
+    "summary",
+    "rubric",
+    "judgeModel",
+    "feedbackLoop"
+  ];
 
   for (const key of required) {
-    if (!partial && !input[key]) {
+    if (!partial && input[key] === undefined) {
       return `${key} is required`;
     }
   }
 
-  for (const key of ["title", "service", "owner", "summary"] as Array<keyof TraceInput>) {
+  for (const key of ["title", "agent", "dataset", "reviewer", "summary", "rubric", "judgeModel", "feedbackLoop"] as Array<
+    keyof TrajectoryInput
+  >) {
     const value = input[key];
     if (value !== undefined && String(value).trim().length === 0) {
       return `${key} cannot be empty`;
@@ -127,15 +149,23 @@ function validateTrace(input: Partial<TraceInput>, partial = false) {
     return "status is invalid";
   }
 
-  if (input.severity !== undefined && !severities.has(input.severity)) {
-    return "severity is invalid";
+  if (input.assessment !== undefined && !assessments.has(input.assessment)) {
+    return "assessment is invalid";
+  }
+
+  if (input.score !== undefined && (!Number.isInteger(input.score) || input.score < 0 || input.score > 100)) {
+    return "score must be an integer between 0 and 100";
   }
 
   return null;
 }
 
-function validateEvent(input: Partial<TraceEventInput>) {
-  for (const key of ["label", "detail", "source"] as Array<keyof TraceEventInput>) {
+function validateEvent(input: Partial<EvaluationEventInput>) {
+  if (!input.kind || !eventKinds.has(input.kind)) {
+    return "kind is invalid";
+  }
+
+  for (const key of ["label", "detail", "source"] as Array<keyof EvaluationEventInput>) {
     if (!input[key] || String(input[key]).trim().length === 0) {
       return `${key} is required`;
     }
