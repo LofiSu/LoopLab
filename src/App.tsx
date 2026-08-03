@@ -84,6 +84,7 @@ export default function App() {
   const [eventForm, setEventForm] = useState<EventPayload>(emptyEvent);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -99,10 +100,11 @@ export default function App() {
   const metrics = useMemo(() => {
     const reviewQueue = trajectories.filter((trajectory) => trajectory.status === "human_review").length;
     const regressions = trajectories.filter((trajectory) => trajectory.assessment === "regression").length;
+    const inLoop = trajectories.filter((trajectory) => trajectory.status === "feedback_loop").length;
     const averageScore = trajectories.length
       ? Math.round(trajectories.reduce((total, trajectory) => total + trajectory.score, 0) / trajectories.length)
       : 0;
-    return { reviewQueue, regressions, averageScore };
+    return { reviewQueue, regressions, inLoop, averageScore };
   }, [trajectories]);
 
   async function loadTrajectories() {
@@ -143,6 +145,7 @@ export default function App() {
     try {
       const data = await createTrajectory(trajectoryForm);
       setTrajectoryForm(emptyTrajectory);
+      setShowCreate(false);
       setSelectedId(data.trajectory.id);
       await loadTrajectories();
     } catch (err) {
@@ -215,24 +218,18 @@ export default function App() {
 
   return (
     <main className="shell">
-      <aside className="sidebar">
+      <header className="topbar">
         <div className="brand">
           <div className="brand-mark">
             <Brain size={22} />
           </div>
           <div>
-            <h1>LoopLab</h1>
-            <p>Agent trajectory evaluation loops</p>
+            <h1>TraceHub</h1>
+            <p>Harness evaluation and trajectory intelligence for AI agents</p>
           </div>
         </div>
 
-        <div className="metric-grid">
-          <Metric icon={<Target size={18} />} label="Avg score" value={metrics.averageScore} />
-          <Metric icon={<CircleDot size={18} />} label="Review" value={metrics.reviewQueue} />
-          <Metric icon={<Activity size={18} />} label="Regressions" value={metrics.regressions} />
-        </div>
-
-        <div className="toolbar">
+        <div className="top-actions">
           <label className="search-box">
             <Search size={17} />
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agents, datasets, rubrics" />
@@ -240,7 +237,7 @@ export default function App() {
           <label className="select-box">
             <Filter size={17} />
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="all">All workflow stages</option>
+              <option value="all">All stages</option>
               {Object.entries(statusLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -248,57 +245,107 @@ export default function App() {
               ))}
             </select>
           </label>
+          <button className="primary-action" onClick={() => setShowCreate((value) => !value)} type="button">
+            {showCreate ? <X size={17} /> : <Plus size={17} />}
+            {showCreate ? "Close" : "New evaluation"}
+          </button>
         </div>
+      </header>
 
-        <div className="trace-list" aria-busy={loading}>
-          {trajectories.map((trajectory) => (
-            <button
-              className={`trace-card ${selectedId === trajectory.id ? "active" : ""}`}
-              key={trajectory.id}
-              onClick={() => setSelectedId(trajectory.id)}
-              type="button"
-            >
-              <span className={`severity-dot ${trajectory.assessment}`} />
-              <span className="trace-card-main">
-                <strong>{trajectory.title}</strong>
-                <small>{trajectory.agent} / {trajectory.dataset}</small>
-              </span>
-              <span className={`status-pill ${trajectory.status}`}>{trajectory.score}</span>
-            </button>
-          ))}
-          {!loading && trajectories.length === 0 ? <div className="empty-state">No trajectories match this view.</div> : null}
-        </div>
-      </aside>
+      <section className="overview-strip">
+        <Metric icon={<Target size={18} />} label="Average rubric score" value={metrics.averageScore} />
+        <Metric icon={<CircleDot size={18} />} label="Human review queue" value={metrics.reviewQueue} />
+        <Metric icon={<Activity size={18} />} label="Regressions" value={metrics.regressions} />
+        <Metric icon={<Database size={18} />} label="Training loops" value={metrics.inLoop} />
+      </section>
 
-      <section className="workspace">
-        {error ? <div className="error-banner">{error}</div> : null}
+      {error ? <div className="error-banner">{error}</div> : null}
 
-        <section className="detail">
+      {showCreate ? (
+        <section className="create-panel">
+          <div className="panel-title">
+            <Plus size={18} />
+            <h3>New trajectory evaluation</h3>
+          </div>
+          <TrajectoryForm actionLabel="Create trajectory" form={trajectoryForm} onChange={setTrajectoryForm} onSubmit={submitTrajectory} />
+        </section>
+      ) : null}
+
+      <section className="dashboard">
+        <aside className="queue-panel">
+          <div className="section-heading">
+            <div>
+              <h2>Evaluation queue</h2>
+              <p>{loading ? "Refreshing trajectory runs" : `${trajectories.length} trajectory runs in view`}</p>
+            </div>
+          </div>
+
+          <div className="trace-list" aria-busy={loading}>
+            {trajectories.map((trajectory) => (
+              <button
+                className={`trace-card ${selectedId === trajectory.id ? "active" : ""}`}
+                key={trajectory.id}
+                onClick={() => setSelectedId(trajectory.id)}
+                type="button"
+              >
+                <span className={`severity-dot ${trajectory.assessment}`} />
+                <span className="trace-card-main">
+                  <strong>{trajectory.title}</strong>
+                  <small>{trajectory.agent} / {trajectory.dataset}</small>
+                </span>
+                <span className="score-chip">{trajectory.score}</span>
+              </button>
+            ))}
+            {!loading && trajectories.length === 0 ? <div className="empty-state">No trajectories match this view.</div> : null}
+          </div>
+        </aside>
+
+        <section className="review-panel">
           {selected ? (
             <>
-              <div className="detail-header">
+              <div className="review-hero">
                 <div>
                   <div className="eyebrow">{selected.agent}</div>
                   <h2>{selected.title}</h2>
                   <p>{selected.summary}</p>
                 </div>
-                <div className="detail-badges">
-                  <span className={`severity-badge ${selected.assessment}`}>{assessmentLabels[selected.assessment]}</span>
-                  <span className={`status-pill ${selected.status}`}>{statusLabels[selected.status]}</span>
+                <div className="score-card">
+                  <span>Rubric score</span>
+                  <strong>{selected.score}</strong>
+                  <small>out of 100</small>
                 </div>
               </div>
 
+              <div className="detail-badges">
+                <span className={`severity-badge ${selected.assessment}`}>{assessmentLabels[selected.assessment]}</span>
+                <span className={`status-pill ${selected.status}`}>{statusLabels[selected.status]}</span>
+              </div>
+
               <div className="insight-grid">
-                <Insight label="Rubric score" value={`${selected.score}/100`} />
                 <Insight label="Dataset" value={selected.dataset} />
                 <Insight label="Judge model" value={selected.judgeModel} />
                 <Insight label="Reviewer" value={selected.reviewer} />
+                <Insight label="Events" value={String(selected.eventCount)} />
+              </div>
+
+              <div className="status-row">
+                {(Object.keys(statusLabels) as EvaluationStatus[]).map((item) => (
+                  <button
+                    className={selected.status === item ? "selected" : ""}
+                    key={item}
+                    onClick={() => void changeStatus(item)}
+                    type="button"
+                  >
+                    {item === "improved" ? <CheckCircle2 size={16} /> : <CircleDot size={16} />}
+                    {statusLabels[item]}
+                  </button>
+                ))}
               </div>
 
               <div className="action-row">
                 <button onClick={() => setEditing(true)} type="button">
                   <Pencil size={16} />
-                  Edit
+                  Edit trajectory
                 </button>
                 <button className="danger-action" onClick={() => void removeSelected()} type="button">
                   <Trash2 size={16} />
@@ -316,20 +363,6 @@ export default function App() {
                   showCancel
                 />
               ) : null}
-
-              <div className="status-row">
-                {(Object.keys(statusLabels) as EvaluationStatus[]).map((item) => (
-                  <button
-                    className={selected.status === item ? "selected" : ""}
-                    key={item}
-                    onClick={() => void changeStatus(item)}
-                    type="button"
-                  >
-                    {item === "improved" ? <CheckCircle2 size={16} /> : <CircleDot size={16} />}
-                    {statusLabels[item]}
-                  </button>
-                ))}
-              </div>
 
               <div className="content-grid">
                 <section className="panel timeline-panel">
@@ -387,14 +420,6 @@ export default function App() {
           ) : (
             <div className="blank-detail">Select or create a trajectory to begin.</div>
           )}
-        </section>
-
-        <section className="create-panel">
-          <div className="panel-title">
-            <Plus size={18} />
-            <h3>New trajectory evaluation</h3>
-          </div>
-          <TrajectoryForm actionLabel="Create trajectory" form={trajectoryForm} onChange={setTrajectoryForm} onSubmit={submitTrajectory} />
         </section>
       </section>
     </main>

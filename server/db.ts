@@ -54,7 +54,7 @@ export type EvaluationEventInput = {
   source: string;
 };
 
-const db = new Database(process.env.LOOPLAB_DB ?? "looplab.sqlite");
+const db = new Database(process.env.TRACEHUB_DB ?? "tracehub.sqlite");
 
 db.exec(`
   PRAGMA journal_mode = WAL;
@@ -145,7 +145,7 @@ if (trajectoryCount === 0) {
         "Compress schema exploration policy and retrain on compact plan-first examples."
       ] as [string, string, string, string, EvaluationStatus, Assessment, number, string, string, string, string],
       events: [
-        ["trajectory", "Run clustered", "Trajectory grouped with seven similar inefficient schema exploration runs.", "LoopLab clustering"],
+        ["trajectory", "Run clustered", "Trajectory grouped with seven similar inefficient schema exploration runs.", "TraceHub clustering"],
         ["rubric", "Rubric score computed", "Correctness passed, but cost efficiency scored 52 due to unnecessary schema calls.", "Rubric engine"],
         ["training", "Feedback loop opened", "Converted reviewer notes into a candidate instruction patch and replay set.", "Training queue"]
       ] as Array<[EventKind, string, string, string]>

@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TraceHub Harbor-Based Panel Draft</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --background: #ffffff;
+        --foreground: #171717;
+        --card: #ffffff;
+        --muted: #f5f5f5;
+        --muted-foreground: #737373;
+        --border: #e5e5e5;
+        --accent: #f5f5f5;
+        --primary: #171717;
+        --primary-foreground: #fafafa;
+        --destructive: #dc2626;
+        --success: #15803d;
+        --warning: #a16207;
+        --radius: 0;
+        font-family:
+          "Google Sans Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        background: var(--background);
+        color: var(--foreground);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .top-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        min-height: 42px;
+        padding: 0 18px;
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+        color: var(--foreground);
+        font-size: 0.86rem;
+      }
+
+      .top-banner strong {
+        font-weight: 500;
+      }
+
+      .top-banner span {
+        color: var(--muted-foreground);
+      }
+
+      .navbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: grid;
+        grid-template-columns: 240px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 20px;
+        height: 56px;
+        padding: 0 18px;
+        background: rgba(255, 255, 255, 0.9);
+        border-bottom: 1px solid var(--border);
+        backdrop-filter: blur(12px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--foreground);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 1.08rem;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .nav-links a,
+      .button,
+      .icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        padding: 0 10px;
+        color: var(--muted-foreground);
+        text-decoration: none;
+        border-radius: var(--radius);
+        font-size: 0.9rem;
+      }
+
+      .nav-links a.active {
+        color: var(--foreground);
+        background: var(--accent);
+      }
+
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .button {
+        color: var(--foreground);
+        background: var(--card);
+        border: 1px solid var(--border);
+        font-weight: 500;
+      }
+
+      .button.primary {
+        color: var(--primary-foreground);
+        background: var(--primary);
+        border-color: var(--primary);
+      }
+
+      .theme-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        min-height: 34px;
+        padding: 3px;
+        border: 1px solid var(--border);
+      }
+
+      .theme-toggle span {
+        display: grid;
+        width: 26px;
+        height: 26px;
+        place-items: center;
+        color: var(--muted-foreground);
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr) 360px;
+        min-height: 0;
+      }
+
+      .sidebar,
+      .main,
+      .inspector {
+        min-width: 0;
+        min-height: 0;
+      }
+
+      .sidebar {
+        border-right: 1px solid var(--border);
+      }
+
+      .inspector {
+        border-left: 1px solid var(--border);
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 52px;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .panel-header h2,
+      .section-title {
+        font-size: 0.92rem;
+        font-weight: 500;
+      }
+
+      .panel-header small,
+      .muted {
+        color: var(--muted-foreground);
+      }
+
+      .filters {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .input,
+      .select {
+        width: 100%;
+        min-height: 34px;
+        padding: 0 9px;
+        color: var(--foreground);
+        background: var(--background);
+        border: 1px solid var(--border);
+        outline: none;
+      }
+
+      .run-list {
+        display: grid;
+        align-content: start;
+        max-height: calc(100vh - 151px);
+        overflow: auto;
+      }
+
+      .run-card {
+        display: grid;
+        gap: 8px;
+        width: 100%;
+        padding: 12px;
+        text-align: left;
+        color: inherit;
+        background: var(--background);
+        border: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .run-card.active {
+        background: var(--muted);
+        box-shadow: inset 3px 0 0 var(--foreground);
+      }
+
+      .run-card strong,
+      .run-card span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .run-line {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+      }
+
+      .run-card strong {
+        font-size: 0.92rem;
+        font-weight: 500;
+      }
+
+      .run-card p {
+        display: -webkit-box;
+        overflow: hidden;
+        color: var(--muted-foreground);
+        font-size: 0.78rem;
+        line-height: 1.4;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .score {
+        color: var(--foreground);
+        font-weight: 600;
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .tag,
+      .status {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 0 7px;
+        border: 1px solid var(--border);
+        color: var(--muted-foreground);
+        background: var(--background);
+        font-size: 0.72rem;
+      }
+
+      .status.fail {
+        color: var(--destructive);
+        border-color: rgba(220, 38, 38, 0.3);
+      }
+
+      .status.pass {
+        color: var(--success);
+        border-color: rgba(21, 128, 61, 0.3);
+      }
+
+      .main {
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+      }
+
+      .breadcrumbs {
+        padding: 14px 16px 0;
+        color: var(--muted-foreground);
+        font-size: 0.78rem;
+      }
+
+      .detail-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 132px;
+        gap: 18px;
+        padding: 12px 16px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .detail-header h2 {
+        max-width: 860px;
+        font-size: clamp(1.4rem, 2.2vw, 2rem);
+        font-weight: 500;
+        line-height: 1.12;
+        letter-spacing: -0.03em;
+      }
+
+      .detail-header p {
+        max-width: 900px;
+        margin-top: 8px;
+        color: var(--muted-foreground);
+        line-height: 1.55;
+      }
+
+      .score-card {
+        display: grid;
+        place-items: center;
+        align-content: center;
+        gap: 4px;
+        min-height: 112px;
+        border: 1px solid var(--border);
+        background: var(--muted);
+      }
+
+      .score-card strong {
+        font-size: 2.1rem;
+        font-weight: 500;
+      }
+
+      .score-card span {
+        color: var(--muted-foreground);
+        font-size: 0.7rem;
+      }
+
+      .tabs {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        min-height: 42px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .tabs button {
+        min-height: 30px;
+        padding: 0 10px;
+        color: var(--muted-foreground);
+        background: transparent;
+        border: 0;
+        font-weight: 500;
+      }
+
+      .tabs button.active {
+        color: var(--foreground);
+        background: var(--accent);
+      }
+
+      .content-area {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 300px;
+        min-height: 0;
+      }
+
+      .trajectory {
+        min-width: 0;
+        overflow: auto;
+        padding: 14px 16px 16px;
+      }
+
+      .message {
+        margin-bottom: 12px;
+        border: 1px solid var(--border);
+        background: var(--background);
+      }
+
+      .message-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 38px;
+        padding: 0 10px;
+        background: var(--muted);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .message-head strong {
+        font-size: 0.84rem;
+        font-weight: 500;
+      }
+
+      .message-head span {
+        color: var(--muted-foreground);
+        font-size: 0.72rem;
+      }
+
+      .message-body {
+        padding: 12px;
+        color: #2f2f2f;
+        font-size: 0.9rem;
+        line-height: 1.58;
+        white-space: pre-wrap;
+      }
+
+      .terminal {
+        margin-top: 12px;
+        border: 1px solid var(--border);
+        background: #0a0a0a;
+        color: #f5f5f5;
+      }
+
+      .terminal-head {
+        display: flex;
+        justify-content: space-between;
+        min-height: 34px;
+        padding: 0 10px;
+        align-items: center;
+        border-bottom: 1px solid #2f2f2f;
+        color: #a3a3a3;
+        font-size: 0.78rem;
+      }
+
+      pre {
+        margin: 0;
+        padding: 12px;
+        overflow: auto;
+        font-size: 0.84rem;
+        line-height: 1.55;
+      }
+
+      .side-summary {
+        border-left: 1px solid var(--border);
+        background: var(--muted);
+        overflow: auto;
+      }
+
+      .summary-section {
+        padding: 14px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .summary-section h3 {
+        margin-bottom: 10px;
+        font-size: 0.88rem;
+        font-weight: 500;
+      }
+
+      .kv {
+        display: grid;
+        gap: 9px;
+      }
+
+      .kv div {
+        display: grid;
+        gap: 3px;
+      }
+
+      .kv span {
+        color: var(--muted-foreground);
+        font-size: 0.7rem;
+      }
+
+      .kv strong {
+        overflow-wrap: anywhere;
+        font-size: 0.86rem;
+        font-weight: 500;
+      }
+
+      .inspector {
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .metric {
+        display: grid;
+        gap: 4px;
+        min-height: 84px;
+        padding: 12px;
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .metric:nth-child(2n) {
+        border-right: 0;
+      }
+
+      .metric span {
+        color: var(--muted-foreground);
+        font-size: 0.7rem;
+      }
+
+      .metric strong {
+        font-size: 1.3rem;
+        font-weight: 500;
+      }
+
+      .rubric-list,
+      .timeline {
+        display: grid;
+        gap: 0;
+        overflow: auto;
+      }
+
+      .rubric {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 44px;
+        gap: 10px;
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .rubric strong {
+        font-size: 0.86rem;
+        font-weight: 500;
+      }
+
+      .rubric span {
+        color: var(--muted-foreground);
+        font-size: 0.74rem;
+      }
+
+      .bar {
+        height: 6px;
+        margin-top: 7px;
+        overflow: hidden;
+        background: #e5e5e5;
+      }
+
+      .bar i {
+        display: block;
+        height: 100%;
+        background: var(--foreground);
+      }
+
+      .event {
+        padding: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .event time {
+        color: var(--muted-foreground);
+        font-size: 0.72rem;
+      }
+
+      .event strong {
+        display: block;
+        margin-top: 5px;
+        font-size: 0.86rem;
+        font-weight: 500;
+      }
+
+      .event p {
+        margin-top: 5px;
+        color: var(--muted-foreground);
+        font-size: 0.78rem;
+        line-height: 1.4;
+      }
+
+      @media (max-width: 1180px) {
+        .workspace,
+        .content-area {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar,
+        .inspector,
+        .side-summary {
+          border-left: 0;
+          border-right: 0;
+        }
+
+        .run-list {
+          max-height: 360px;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .navbar,
+        .detail-header {
+          grid-template-columns: 1fr;
+          height: auto;
+          padding: 12px;
+        }
+
+        .nav-links,
+        .nav-actions {
+          overflow: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="top-banner">
+        <strong>harbor-style draft for TraceHub</strong>
+        <span>evaluate agents in sandboxed trajectories / no gradients, no cards stack, inspection-first</span>
+      </section>
+
+      <header class="navbar">
+        <section class="brand">
+          <div class="brand-mark"></div>
+          <h1>tracehub</h1>
+        </section>
+        <nav class="nav-links" aria-label="Primary">
+          <a class="active" href="#">runs</a>
+          <a href="#">datasets</a>
+          <a href="#">judges</a>
+          <a href="#">leaderboards</a>
+          <a href="#">docs</a>
+        </nav>
+        <section class="nav-actions">
+          <div class="theme-toggle"><span>☼</span><span>◐</span><span>☾</span></div>
+          <button class="button">import</button>
+          <button class="button primary">new run</button>
+        </section>
+      </header>
+
+      <section class="workspace">
+        <aside class="sidebar">
+          <header class="panel-header">
+            <div>
+              <h2>runs</h2>
+              <small>3 trajectory evaluations</small>
+            </div>
+          </header>
+          <section class="filters">
+            <input class="input" value="refund policy" aria-label="Search runs" />
+            <select class="select" aria-label="Status">
+              <option>all</option>
+              <option>human review</option>
+              <option>feedback loop</option>
+            </select>
+          </section>
+          <section class="run-list">
+            <button class="run-card active">
+              <span class="run-line"><strong>refund policy negotiation drift</strong><span class="score">61</span></span>
+              <p>agent invented unsupported refund exception after ambiguous retrieval context.</p>
+              <span class="tag-row"><span class="status fail">regression</span><span class="tag">human-review</span></span>
+            </button>
+            <button class="run-card">
+              <span class="run-line"><strong>sql analyst task decomposition</strong><span class="score">78</span></span>
+              <p>correct final SQL, but extra schema calls increased cost and latency.</p>
+              <span class="tag-row"><span class="status">watch</span><span class="tag">cost</span></span>
+            </button>
+            <button class="run-card">
+              <span class="run-line"><strong>calendar scheduling recovery</strong><span class="score">92</span></span>
+              <p>recovered from unavailable slot with one concise clarification.</p>
+              <span class="tag-row"><span class="status pass">pass</span><span class="tag">demo-set</span></span>
+            </button>
+          </section>
+        </aside>
+
+        <section class="main">
+          <div class="breadcrumbs">jobs / support-resolution-agent / trials / run_8f41</div>
+          <header class="detail-header">
+            <div>
+              <h2>refund policy negotiation drift</h2>
+              <p>
+                the agent resolved the user request but invented a non-existent refund exception after retrieval returned
+                ambiguous policy context.
+              </p>
+            </div>
+            <aside class="score-card">
+              <strong>61</strong>
+              <span>rubric score</span>
+            </aside>
+          </header>
+          <nav class="tabs">
+            <button class="active">trajectory</button>
+            <button>config</button>
+            <button>files</button>
+            <button>analysis</button>
+            <button>raw json</button>
+          </nav>
+          <section class="content-area">
+            <section class="trajectory">
+              <article class="message">
+                <header class="message-head"><strong>system</strong><span>policy guardrails</span></header>
+                <div class="message-body">
+You are a support resolution agent. Answer only using policy snippets returned by retrieval tools.
+Escalate if policy coverage is uncertain.
+                </div>
+              </article>
+              <article class="message">
+                <header class="message-head"><strong>observation: retrieve_policy</strong><span>2 snippets</span></header>
+                <div class="message-body">
+Refunds are available within 30 days for standard plans.
+Enterprise exception requests must be reviewed by account management.
+                </div>
+              </article>
+              <article class="message">
+                <header class="message-head"><strong>assistant</strong><span>final answer</span></header>
+                <div class="message-body">
+I can apply a courtesy refund exception here.
+
+This assertion is unsupported by retrieved policy and should have been escalated.
+                </div>
+              </article>
+              <article class="terminal">
+                <header class="terminal-head"><span>judge output</span><span>copy</span></header>
+                <pre>{
+  "policy_grounding": 44,
+  "citation_accuracy": 38,
+  "finding": "unsupported exception claim",
+  "recommendation": "add hard-negative policy examples"
+}</pre>
+              </article>
+            </section>
+
+            <aside class="side-summary">
+              <section class="summary-section">
+                <h3>metadata</h3>
+                <div class="kv">
+                  <div><span>agent</span><strong>support-resolution-agent</strong></div>
+                  <div><span>dataset</span><strong>enterprise-support-evals-2026-07</strong></div>
+                  <div><span>judge</span><strong>gpt-4.1 judge v3</strong></div>
+                  <div><span>reviewer</span><strong>Mina Chen</strong></div>
+                </div>
+              </section>
+              <section class="summary-section">
+                <h3>feedback loop</h3>
+                <p class="muted">
+                  add hard-negative examples for unsupported exceptions and route low-confidence answers to human review.
+                </p>
+              </section>
+            </aside>
+          </section>
+        </section>
+
+        <aside class="inspector">
+          <header class="panel-header">
+            <div>
+              <h2>analysis</h2>
+              <small>current trial</small>
+            </div>
+          </header>
+          <section class="metric-grid">
+            <article class="metric"><span>latency</span><strong>2.8s</strong></article>
+            <article class="metric"><span>cost</span><strong>$0.18</strong></article>
+            <article class="metric"><span>events</span><strong>3</strong></article>
+            <article class="metric"><span>agreement</span><strong>yes</strong></article>
+          </section>
+          <section class="rubric-list">
+            <article class="rubric">
+              <div><strong>policy grounding</strong><span>unsupported claim</span><div class="bar"><i style="width:44%"></i></div></div>
+              <strong>44</strong>
+            </article>
+            <article class="rubric">
+              <div><strong>citation accuracy</strong><span>missing source</span><div class="bar"><i style="width:38%"></i></div></div>
+              <strong>38</strong>
+            </article>
+            <article class="rubric">
+              <div><strong>escalation judgment</strong><span>should defer</span><div class="bar"><i style="width:72%"></i></div></div>
+              <strong>72</strong>
+            </article>
+            <article class="rubric">
+              <div><strong>customer tone</strong><span>clear and calm</span><div class="bar"><i style="width:91%"></i></div></div>
+              <strong>91</strong>
+            </article>
+          </section>
+          <section class="timeline">
+            <article class="event">
+              <time>10:14</time>
+              <strong>trajectory imported</strong>
+              <p>18 turns captured with tool calls, retrieval snippets, and final response.</p>
+            </article>
+            <article class="event">
+              <time>10:16</time>
+              <strong>llm judge flagged hallucination</strong>
+              <p>citation accuracy and policy grounding dimensions failed.</p>
+            </article>
+            <article class="event">
+              <time>10:22</time>
+              <strong>human review confirmed</strong>
+              <p>reviewer marked this run as a training feedback candidate.</p>
+            </article>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>

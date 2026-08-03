@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "looplab",
+      "name": "tracehub",
       "dependencies": {
         "@vitejs/plugin-react": "^4.3.4",
         "hono": "^4.6.17",

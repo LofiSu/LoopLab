@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { importDatapipePayload, previewDatapipePayload } from "./datapipe";
 import {
   createEvent,
   createTrajectory,
@@ -27,7 +28,27 @@ const app = new Hono();
 app.use("*", logger());
 app.use("/api/*", cors());
 
-app.get("/api/health", (c) => c.json({ ok: true, service: "LoopLab" }));
+app.get("/api/health", (c) => c.json({ ok: true, service: "TraceHub" }));
+
+app.post("/api/datapipe/preview", async (c) => {
+  const payload = await c.req.json<unknown>();
+  const items = previewDatapipePayload(payload);
+  if (items.length === 0) {
+    return c.json({ error: "No importable trajectories found" }, 400);
+  }
+
+  return c.json({ items });
+});
+
+app.post("/api/datapipe/import", async (c) => {
+  const payload = await c.req.json<unknown>();
+  const items = importDatapipePayload(payload);
+  if (items.length === 0) {
+    return c.json({ error: "No importable trajectories found" }, 400);
+  }
+
+  return c.json({ imported: items }, 201);
+});
 
 app.get("/api/trajectories", (c) => {
   const search = c.req.query("q") ?? "";
@@ -113,7 +134,7 @@ Bun.serve({
   fetch: app.fetch
 });
 
-console.log(`LoopLab API running on http://localhost:${port}`);
+console.log(`TraceHub API running on http://localhost:${port}`);
 
 function validateTrajectory(input: Partial<TrajectoryInput>, partial = false) {
   const required: Array<keyof TrajectoryInput> = [

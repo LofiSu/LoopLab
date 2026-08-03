@@ -1,6 +1,6 @@
-# LoopLab
+# TraceHub
 
-LoopLab is an open-source platform for understanding, evaluating, and improving AI agent behavior through trajectory analysis, rubric-based assessment, LLM-as-judge evaluation, human review, and training feedback loops.
+TraceHub is an open-source harness evaluation and trajectory intelligence platform for understanding, testing, and improving AI agents.
 
 ## Stack
 
@@ -38,4 +38,4 @@ After building, the Hono server serves the compiled frontend from `dist`.
 
 ## Data
 
-The app creates `looplab.sqlite` automatically on first start and seeds a few trajectory evaluations so the interface is immediately usable.
+The app creates `tracehub.sqlite` automatically on first start and seeds a few trajectory evaluations so the interface is immediately usable.
