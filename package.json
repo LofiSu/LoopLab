@@ -2,6 +2,7 @@
   "name": "tracehub",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "bun run dev:server & bun run dev:client",

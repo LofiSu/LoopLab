@@ -39,3 +39,20 @@ After building, the Hono server serves the compiled frontend from `dist`.
 ## Data
 
 The app creates `tracehub.sqlite` automatically on first start and seeds a few trajectory evaluations so the interface is immediately usable.
+
+## Packaging notes
+
+TraceHub is an open-source platform in this LoopLab repository for understanding and evaluating AI agent loops. Each trajectory records an agent, a dataset, rubric text, an integer score from 0 to 100, and an assessment of pass, watch, fail, or regression. Status moves through captured, evaluating, human review, feedback loop, and improved. Reviewers can attach events for the trajectory, the rubric, an LLM judge (including calibration notes), human review, and training feedback. The app is a Bun and Hono API on SQLite with a React and Vite interface. On first start it creates `tracehub.sqlite` and seeds a few evaluations. The API can also preview and import trajectory JSON at `/api/datapipe/preview` and `/api/datapipe/import`.
+
+Suggested GitHub topics:
+
+- ai-agents
+- agent-evaluation
+- llm
+- human-in-the-loop
+- sqlite
+- bun
+- hono
+- react
+- typescript
+
