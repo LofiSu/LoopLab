@@ -1,22 +1,31 @@
 # TraceHub
 
-TraceHub is an open-source harness evaluation and trajectory intelligence platform for understanding, testing, and improving AI agents.
+TraceHub is a local review app for AI agent trajectories. It keeps each run's agent, dataset, rubric, score, and assessment in one queue, with human-review and training-feedback notes on that run.
+
+## Review queue
+
+Create, edit, and delete trajectory evaluations. Search by title, agent, dataset, reviewer, summary, or rubric, and filter by status. Overview counts follow the current view: average rubric score, human-review queue, regressions, and feedback-loop runs.
+
+Each trajectory stores:
+
+- Title, agent, dataset, and reviewer
+- Status: `captured`, `evaluating`, `human_review`, `feedback_loop`, or `improved`
+- Assessment: `pass`, `watch`, `fail`, or `regression`
+- An integer rubric score from 0 to 100
+- Summary, rubric text, the judge model name, and a training feedback note
+
+Reviewers add timeline events of kind `trajectory`, `rubric`, `judge`, `human`, or `training`. Each event has a label, detail, and source. Judge output and review notes live in that detail text. TraceHub stores the judge model name with the evaluation.
 
 ## Stack
 
-- Bun runtime
-- Hono API server
-- SQLite persistence through `bun:sqlite`
-- React + Vite frontend
-- Lucide icons
+- [Bun](https://bun.sh) runtime
+- [Hono](https://hono.dev) API
+- SQLite through `bun:sqlite`
+- [React](https://react.dev) and [Vite](https://vite.dev)
 
-## Core workflows
+## Requirements
 
-- Capture and inspect AI agent trajectories
-- Score trajectories with rubric dimensions
-- Track LLM-as-judge outputs and calibration notes
-- Route failures and regressions to human review
-- Convert review findings into training feedback loops
+Install [Bun](https://bun.sh). The API and the SQLite database both run on the Bun runtime.
 
 ## Getting started
 
@@ -25,34 +34,50 @@ bun install
 bun run dev
 ```
 
-The API runs on `http://localhost:3000` and the React app runs on `http://localhost:5173`.
+The API listens on `http://localhost:3000`. The React app listens on `http://localhost:5173` and proxies `/api` to the API.
 
-## Production build
+```bash
+bun run typecheck
+```
+
+## Configuration
+
+| Variable | Default | Role |
+| --- | --- | --- |
+| `PORT` | `3000` | API listen port |
+| `TRACEHUB_DB` | `tracehub.sqlite` | SQLite database path |
+| `VITE_API_TARGET` | `http://localhost:3000` | Vite dev proxy target for `/api` |
+
+## Production
 
 ```bash
 bun run build
 bun run start
 ```
 
-After building, the Hono server serves the compiled frontend from `dist`.
+`bun run build` compiles the frontend into `dist`. When `dist` is present, `bun run start` serves it from the Hono server.
 
 ## Data
 
-The app creates `tracehub.sqlite` automatically on first start and seeds a few trajectory evaluations so the interface is immediately usable.
+On startup, TraceHub opens the SQLite file. If the trajectories table is empty, it inserts three sample evaluations so the queue is usable.
 
-## Packaging notes
+## Import
 
-TraceHub is an open-source platform in this LoopLab repository for understanding and evaluating AI agent loops. Each trajectory records an agent, a dataset, rubric text, an integer score from 0 to 100, and an assessment of pass, watch, fail, or regression. Status moves through captured, evaluating, human review, feedback loop, and improved. Reviewers can attach events for the trajectory, the rubric, an LLM judge (including calibration notes), human review, and training feedback. The app is a Bun and Hono API on SQLite with a React and Vite interface. On first start it creates `tracehub.sqlite` and seeds a few evaluations. The API can also preview and import trajectory JSON at `/api/datapipe/preview` and `/api/datapipe/import`.
+`POST /api/datapipe/preview` normalizes trajectory JSON and returns the items and warnings. `POST /api/datapipe/import` writes those trajectories and their events.
 
-Suggested GitHub topics:
+The body may be one object, an array of objects, or an object with a `trajectories`, `traces`, `runs`, `trials`, or `jobs` array. A body with nothing to import returns `400`.
 
-- ai-agents
-- agent-evaluation
-- llm
-- human-in-the-loop
-- sqlite
-- bun
-- hono
-- react
-- typescript
+## HTTP API
 
+- `GET /api/health`
+- `GET /api/trajectories` and `GET /api/traces`, with optional `q` and `status` query parameters (`status` uses the stored status values above; `all` is the default)
+- `POST /api/trajectories`
+- `GET`, `PATCH`, and `DELETE /api/trajectories/:id`
+- `POST /api/trajectories/:id/events`
+- `POST /api/datapipe/preview` and `POST /api/datapipe/import`
+
+`GET /api/traces` returns the same payload as `GET /api/trajectories`.
+
+## License
+
+[MIT](LICENSE)
